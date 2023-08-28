@@ -1,0 +1,163 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[13]:
+
+
+# Data Loading
+
+import pandas as pd
+import sqlite3
+from sqlite3 import Error
+import re
+import numpy as np
+import csv
+import ipywidgets as widgets
+from ipywidgets import interact
+from ipywidgets import interact_manual
+
+
+# In[ ]:
+
+
+import requests
+from bs4 import BeautifulSoup
+import os
+from csv import writer
+from tqdm import tqdm
+import time
+
+
+# Generate URL for job search
+def generateUrl(countrycode, jobtitle, jobtype, jobexperience):
+    return f"https://ai-jobs.net/?cou={countrycode}&key={jobtitle.replace(' ', '+')}&typ={jobtype}&exp={jobexperience}"
+
+
+# Function to scrape job data
+def scrape_jobs_data():
+     # Define job roles, types, and experience levels
+    jobRoles = ["Software Engineer", "Data Scientist", "Machine Learning Engineer", "SAP"]
+    jobTypes = {"Full Time": 1, "Part Time": 2, "Temporary": 3, "Internship": 4, "Freelance": 5, "Contract": 6}
+    experienceLevels = {"Entry Level": "EN", "Mid Level": "MI", "Senior Level": "SE", "Executive Level": "EX"}
+    URL = "https://ai-jobs.net/"
+    country_code_range = range(101, 254)
+    url_lists = []
+    job_lists = []
+    csv_file = "data.csv"
+    failed_retrieval = "failed_retrieval.csv"
+    header_list = ["Company", "Job Criteria", "Job Role", "Job Type", "Experience Level", "Salary", "Country", "State", "City", "Skills", "Benefits"]
+    failed_header_list = ["Links"]
+
+       # Generate URLs to scrape
+    for countryCode in country_code_range:
+        for jobRole in jobRoles:
+            for jobType in jobTypes:
+                for experienceLevel in experienceLevels:
+                    url_lists.append(generateUrl(countryCode, jobRole, jobType, experienceLevel))
+
+    start = time.time()
+    record_count = 0
+
+     # Loop through URLs and scrape job data
+    for i in tqdm(range(len(url_lists))):
+        page_data = requests.get(url_lists[i]).text
+        results = BeautifulSoup(page_data, "html.parser")
+
+        blank_page = results.find_all("p", class_="text-center")
+        if blank_page:
+            continue
+        else:
+            try:
+                # Extract job criteria and job listings
+                job_criteria = results.find_all("input", class_="textinput form-control", value=True)[0]['value']
+                elements = results.find_all("li", class_="list-group-item list-group-item-action p-1")
+            except:
+                # If retrieval fails, record the URL
+                if not os.path.isfile(failed_retrieval):
+                    with open(failed_retrieval, "w") as f:
+                        csv.DictWriter(f, delimiter=',', fieldnames=failed_header_list).writeheader()
+                with open(failed_retrieval, "a") as f:
+                    writer(f).writerow(url_lists[i])
+                    f.close()
+
+             # Process job listings
+            for element in elements:
+
+                job_element = [] #[title, search_term, role, job_type, exp_level, salary, country, state, city, skils, benefits]
+                if element.find_all("p", class_ = "m-0 text-muted")[0].get_text().strip():job_element.append(element.find_all("p", class_ = "m-0 text-muted")[0].get_text().strip())
+                else:job_element.append("")
+
+                if job_criteria:job_element.append(job_criteria)
+                else:job_element.append("")
+
+                if element.find_all("h3", class_ = "h5 mb-2 text-body-emphasis")[0].get_text().strip():job_element.append(element.find_all("h3", class_ = "h5 mb-2 text-body-emphasis")[0].get_text().strip())
+                else:job_element.append("")
+
+                if element.find_all("span", class_ = "badge rounded-pill text-bg-secondary my-md-1 ms-1")[0].get_text().strip():job_element.append(element.find_all("span", class_ = "badge rounded-pill text-bg-secondary my-md-1 ms-1")[0].get_text().strip())
+                else:job_element.append("")
+
+                if element.find_all("span", class_ = "badge rounded-pill text-bg-info my-md-1 d-md-none")[0].get_text().strip():job_element.append(element.find_all("span", class_ = "badge rounded-pill text-bg-info my-md-1 d-md-none")[0].get_text().strip())
+                else:job_element.append("")
+
+                if element.find_all("span", class_ = "badge rounded-pill text-bg-success d-md-none"):job_element.append(int(element.find_all("span", class_ = "badge rounded-pill text-bg-success d-md-none")[0].get_text().split(" ")[1].replace("K", "000").replace("+","").strip()))
+                else:job_element.append("")
+
+                location_list = element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")
+
+                if len(location_list) == 3 and element.find_all("span", class_ = "d-block d-md-none text-break"):job_element.append(element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")[-1].strip())
+                elif len(location_list) < 3 and element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")[-1].strip():job_element.append(element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")[-1].strip())
+                else:job_element.append("")
+
+                if len(location_list) == 3 and element.find_all("span", class_ = "d-block d-md-none text-break"):job_element.append(element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")[1].strip())
+                elif len(location_list) < 3 and element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")[-1].strip():job_element.append(element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")[-1].strip())
+                else:job_element.append("")
+
+                if len(location_list) == 3 and element.find_all("span", class_ = "d-block d-md-none text-break"):job_element.append(element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")[0].strip())
+                elif len(location_list) < 3 and element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")[-1].strip():job_element.append(element.find_all("span", class_ = "d-block d-md-none text-break")[0].get_text().split(",")[-1].strip())
+                else:job_element.append("")
+
+                job_skills = []
+                for temp in element.find_all("span", class_ = "badge rounded-pill text-bg-light"):
+                    if temp.get_text().replace("+","").strip().isnumeric():
+                      continue
+                    else:
+                      job_skills.append(temp.get_text().strip())
+                job_benefits = []
+                for temp in element.find_all("span", class_ = "badge rounded-pill text-bg-success"):
+                    if temp.get_text().replace("+","").strip().isnumeric():
+                        continue
+                    else:
+                        job_benefits.append(temp.get_text().strip())
+
+                if job_skills: job_element.append(" ,".join(job_skills))
+                else:job_element.append("")
+
+                if job_benefits: job_element.append(" ,".join(job_benefits))
+                else:job_element.append("")
+
+      # if element.find_all("a", class_ = "col pt-2 pb-3", href = True):job_element.append((URL + element.find_all("a", class_ = "col pt-2 pb-3", href = True)[0]['href']).strip())
+      # else:job_element.append("")
+
+                 # Append job element list to job_lists
+                job_lists.append(job_element)
+                record_count += 1
+             # Write job data to CSV
+            if not os.path.isfile(csv_file):
+                with open(csv_file, "w") as file:
+                    csv.DictWriter(file, delimiter=',', fieldnames=header_list).writeheader()
+            with open(csv_file, "a") as file:
+                writer(file).writerows(job_lists)
+                file.close()
+
+    end = time.time()
+    print(f"Processed {record_count} jobs in {round(((end - start) * 10**3)//60000, 3)} minutes.")
+
+if __name__ == "__main__":
+    scrape_jobs_data()
+
+
+# In[ ]:
+
+
+
+
