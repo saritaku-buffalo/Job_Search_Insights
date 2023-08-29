@@ -11,7 +11,7 @@ To gather job data, I utilized web scraping techniques to extract information fr
 After scraping the job data, I processed and cleaned it to prepare it for analysis. I used Python's Pandas library to structure the data and fill in missing values. The data transformation phase involved handling null values, structuring job attributes, and organizing the information into a more usable format for analysis and visualization.
 
 # Data Load:
-Data loading phase will reads data from a TSV file, creates an SQLite database, defines a table structure, processes the data, inserts it into the database, fetches and prints the data, and provides a coherent way to manage this process through well-defined functions.
+Data loading phase will reads data from a TSV file, creates an SQLite database, defines a table structure, processes the data, inserts it into the database, fetches and prints the data, and provides a coherent way to manage this process through well-defined functions. You can use the SQLite command-line tool to interact with the database file (job2_data.db).
 
 # Data Visualization:
 For data visualization, I leveraged Power BI to create insightful visualizations based on the cleaned job data. I visualized factors such as job roles, types, experience levels,
